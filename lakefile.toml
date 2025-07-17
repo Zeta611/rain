@@ -1,0 +1,7 @@
+name = "Rain"
+version = "0.1.0"
+defaultTargets = ["rain"]
+
+[[lean_exe]]
+name = "rain"
+root = "Main"
