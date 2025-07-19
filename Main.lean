@@ -1,6 +1,6 @@
-inductive 𝔼ₜ where
-  | add (n : Nat) : 𝔼ₜ
-  | mul (n : Nat) : 𝔼ₜ
+inductive 𝔼ₜ
+  | add (n : Nat)
+  | mul (n : Nat)
 
 declare_syntax_cat exp_t
 syntax ("ADD " <|> "MUL ") term : exp_t
@@ -12,8 +12,8 @@ macro_rules
 /- Metaprogramming from the object language T's perspective -/
 #eval T⟪ ADD (42 + 5) ⟫
 
-inductive 𝕍ₜ where
-  | nat (n : Nat) : 𝕍ₜ
+inductive 𝕍ₜ
+  | nat (n : Nat)
 
 instance : OfNat 𝕍ₜ n where
   ofNat := .nat n
@@ -37,16 +37,16 @@ macro "⟦ " e:term " ⟧" : term => `(semₜ $e)
 #eval ⟦ T⟪ ADD 42 ⟫ ⟧ 10
 #eval ⟦ MUL 42 ⟧ 3
 
-inductive 𝔼ₛ where
-  | var : 𝔼ₛ
-  | nat (n : Nat) : 𝔼ₛ
-  | add (e₁ e₂ : 𝔼ₛ) : 𝔼ₛ
-  | mul (e₁ e₂ : 𝔼ₛ) : 𝔼ₛ
-  | equal (e₁ e₂ : 𝔼ₛ) : 𝔼ₛ
-  | pair (e₁ e₂ : 𝔼ₛ) : 𝔼ₛ
-  | proj₁ (e : 𝔼ₛ) : 𝔼ₛ
-  | proj₂ (e : 𝔼ₛ) : 𝔼ₛ
-  | ite (eᵢ eₜ eₑ : 𝔼ₛ) : 𝔼ₛ
+inductive 𝔼ₛ
+  | var
+  | nat (n : Nat)
+  | add (e₁ e₂ : 𝔼ₛ)
+  | mul (e₁ e₂ : 𝔼ₛ)
+  | equal (e₁ e₂ : 𝔼ₛ)
+  | pair (e₁ e₂ : 𝔼ₛ)
+  | proj₁ (e : 𝔼ₛ)
+  | proj₂ (e : 𝔼ₛ)
+  | ite (eᵢ eₜ eₑ : 𝔼ₛ)
 
 instance : OfNat 𝔼ₛ n where
   ofNat := .nat n
@@ -78,12 +78,18 @@ macro_rules
   | `(S⟪ if ($eᵢ:exp_s) then { $eₜ:exp_s } else { $eₑ:exp_s } ⟫) =>
       `(𝔼ₛ.ite S⟪ $eᵢ ⟫ S⟪ $eₜ ⟫ S⟪ $eₑ ⟫)
 
-#eval S⟪ if (x.1.1 = 0) then { x.1.2 + x.2 } else { x.1.2 * x.2 } ⟫
+#eval S⟪
+  if (x.1.1 = 0) then {
+    x.1.2 + x.2
+  } else {
+    x.1.2 * x.2
+  }
+⟫
 #eval S⟪ x ⟫
 
-inductive 𝕍ₛ where
-  | nat (n : Nat) : 𝕍ₛ
-  | pair (v₁ v₂ : 𝕍ₛ) : 𝕍ₛ
+inductive 𝕍ₛ
+  | nat (n : Nat)
+  | pair (v₁ v₂ : 𝕍ₛ)
 
 instance : OfNat 𝕍ₛ n where
   ofNat := .nat n
@@ -160,9 +166,13 @@ def semₛ : 𝔼ₛ → 𝕍ₛ → Option 𝕍ₛ
 macro "⟦ " e:exp_s " ⟧" : term => `(semₛ S⟪ $e ⟫)
 macro "⟦ " e:term " ⟧" : term => `(semₛ $e)
 
-#eval if let some v := ⟦ (3 : 𝔼ₛ) ⟧ 0 then v else 99
-
-def Iₛₜ : 𝔼ₛ := S⟪ if (x.1.1 = 0) then { x.1.2 + x.2 } else { x.1.2 * x.2 } ⟫
+def Iₛₜ : 𝔼ₛ := S⟪
+  if (x.1.1 = 0) then {
+    x.1.2 + x.2
+  } else {
+    x.1.2 * x.2
+  }
+⟫
 
 #eval if let some v := ⟦ Iₛₜ ⟧ (⌈ T⟪ ADD 3 ⟫ ⌉, ⌈ 4 ⌉)
   then v else 99
