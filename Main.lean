@@ -83,12 +83,14 @@ inductive 𝕍ₛ where
 instance : OfNat 𝕍ₛ n where
   ofNat := .nat n
 
-instance : CoeOut Nat 𝕍ₛ where
+instance : Coe Nat 𝕍ₛ where
   coe := .nat
 
-instance [CoeOut A 𝕍ₛ] [CoeOut B 𝕍ₛ] : CoeOut (A × B) 𝕍ₛ where
-  coe := λ (a, b) => .pair (CoeOut.coe a) (CoeOut.coe b)
+instance : Coe 𝕍ₛ 𝕍ₛ where
+  coe n := n
 
+instance [Coe A 𝕍ₛ] [Coe B 𝕍ₛ] : Coe (A × B) 𝕍ₛ where
+  coe := λ (a, b) => .pair (Coe.coe a) (Coe.coe b)
 
 #eval (((1, 2), 3) : 𝕍ₛ)
 
@@ -96,11 +98,11 @@ def encodeEₜₛ : 𝔼ₜ → 𝕍ₛ
   | T⟪ ADD n ⟫ => (0, n)
   | T⟪ MUL n ⟫ => (1, n)
 
-macro "⌈" e:exp_t "⌉" : term => do
-  `(encodeEₜₛ T⟪ $e ⟫)
+macro "⌈" e:term "⌉" : term => do
+  `(encodeEₜₛ $e)
 
-#eval ⌈ ADD 42 ⌉
-#eval ⌈ MUL 42 ⌉
+#eval ⌈ T⟪ ADD 42 ⟫ ⌉
+#eval ⌈ T⟪ MUL 42 ⟫ ⌉
 
 def encodeVₜₛ : 𝕍ₜ → 𝕍ₛ
   | .nat n => n
@@ -131,36 +133,35 @@ def semₛ : 𝔼ₛ → 𝕍ₛ → Option 𝕍ₛ
     match (v1, v2) with
       | (.nat n1, .nat n2) => 𝕍ₛ.nat (if n1 = n2 then 1 else 0)
       | _ => none
-  | 𝔼ₛ.pair e₁ e₂, v => do
+  | .pair e₁ e₂, v => do
     let v1 ← semₛ e₁ v
     let v2 ← semₛ e₂ v
-    𝕍ₛ.pair v1 v2
-  | 𝔼ₛ.proj₁ e, v => do
+    (v1, v2)
+  | .proj₁ e, v => do
     let v' ← semₛ e v
     match v' with
       | .pair v1 _ => v1
       | _ => none
-  | 𝔼ₛ.proj₂ e, v => do
+  | .proj₂ e, v => do
     let v' ← semₛ e v
     match v' with
       | .pair _ v2 => v2
       | _ => none
-  | 𝔼ₛ.ite eᵢ eₜ eₑ, v => do
+  | .ite eᵢ eₜ eₑ, v => do
     let p ← semₛ eᵢ v
     match p with
       | 0 => semₛ eₑ v
       | _ => semₛ eₜ v
 
-macro "⟦" e:exp_s "⟧" : term => do
-  `(semₛ S⟪ $e ⟫)
+macro "⟦" e:term "⟧" : term => do
+  `(semₛ $e)
 
-#eval if let some v := ⟦ 1 + 2 * 3 ⟧ 0 then v else 99
+#eval if let some v := ⟦ S⟪ 1 + 2 * 3 ⟫ ⟧ 0 then v else 99
 
 def Iₛₜ : 𝔼ₛ := S⟪ if (x.1.1 = 0) then { x.1.2 + x.2 } else { x.1.2 * x.2 } ⟫
-#eval if let some v :=
-  ⟦ if (x.1.1 = 0) then { x.1.2 + x.2 } else { x.1.2 * x.2 } ⟧ (.pair ⌈ MUL 3 ⌉ ⌈ 4 ⌉)
+
+#eval if let some v := ⟦ Iₛₜ ⟧ (⌈ T⟪ ADD 3 ⟫ ⌉, ⌈ 4 ⌉)
   then v else 99
 
-#eval if let some v :=
-  ⟦ if (x.1.1 = 0) then { x.1.2 + x.2 } else { x.1.2 * x.2 } ⟧ (.pair ⌈ ADD 3 ⌉ ⌈ 4 ⌉)
+#eval if let some v := ⟦ Iₛₜ ⟧ (⌈ T⟪ MUL 3 ⟫ ⌉, ⌈ 4 ⌉)
   then v else 99
