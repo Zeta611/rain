@@ -3,15 +3,14 @@ inductive 𝔼ₜ where
   | mul (n : Nat) : 𝔼ₜ
 
 declare_syntax_cat exp_t
-syntax "ADD" term : exp_t
-syntax "MUL" term : exp_t
-syntax "T⟪" exp_t "⟫" : term
+syntax ("ADD " <|> "MUL ") term : exp_t
+syntax "T⟪ " exp_t " ⟫" : term
 macro_rules
   | `(T⟪ ADD $n ⟫) => `(𝔼ₜ.add $n)
   | `(T⟪ MUL $n ⟫) => `(𝔼ₜ.mul $n)
 
-#eval T⟪ ADD 0 ⟫
-#eval T⟪ MUL 0 ⟫
+/- Metaprogramming from the object language T's perspective -/
+#eval T⟪ ADD (42 + 5) ⟫
 
 inductive 𝕍ₜ where
   | nat (n : Nat) : 𝕍ₜ
@@ -28,13 +27,14 @@ instance : Coe 𝕍ₜ Nat where
 #eval (42 : 𝕍ₜ)
 
 def semₜ : 𝔼ₜ → 𝕍ₜ → 𝕍ₜ
-  | T⟪ ADD n ⟫, (m : Nat) => n + m
-  | T⟪ MUL n ⟫, (m : Nat) => n * m
+  | .add n, .nat m => n + m
+  | .mul n, .nat m => n * m
 
-macro "⟦" e:exp_t "⟧" : term => do
-  `(semₜ T⟪ $e ⟫)
+macro "⟦ " e:exp_t " ⟧" : term => `(semₜ T⟪ $e ⟫)
+macro "⟦ " e:term " ⟧" : term => `(semₜ $e)
 
 #eval ⟦ ADD 42 ⟧ 10
+#eval ⟦ T⟪ ADD 42 ⟫ ⟧ 10
 #eval ⟦ MUL 42 ⟧ 3
 
 inductive 𝔼ₛ where
@@ -48,18 +48,23 @@ inductive 𝔼ₛ where
   | proj₂ (e : 𝔼ₛ) : 𝔼ₛ
   | ite (eᵢ eₜ eₑ : 𝔼ₛ) : 𝔼ₛ
 
+instance : OfNat 𝔼ₛ n where
+  ofNat := .nat n
+
+instance : Coe Nat 𝔼ₛ where
+  coe := .nat
+
 declare_syntax_cat exp_s
 syntax num : exp_s
-syntax "x" : exp_s
-syntax:40 exp_s:40 "=" exp_s:41 : exp_s
-syntax:50 exp_s:50 "+" exp_s:51 : exp_s
-syntax:60 exp_s:60 "*" exp_s:61 : exp_s
-syntax "(" exp_s "," exp_s ")" : exp_s
-syntax "(" exp_s ")" : exp_s
-syntax exp_s ".1" : exp_s
-syntax exp_s ".2" : exp_s
-syntax "if" "(" exp_s ")" "then" "{" exp_s "}" "else" "{" exp_s "}" : exp_s
-syntax "S⟪" exp_s "⟫" : term
+syntax ident : exp_s
+syntax:40 exp_s:40 " = " exp_s:41 : exp_s
+syntax:50 exp_s:50 " + " exp_s:51 : exp_s
+syntax:60 exp_s:60 " * " exp_s:61 : exp_s
+syntax "( " exp_s ", " exp_s " )" : exp_s
+syntax "( " exp_s " )" : exp_s
+syntax exp_s (".1" <|> ".2") : exp_s
+syntax "if " "( " exp_s " ) " "then" " { " exp_s " } " "else" " { " exp_s " }" : exp_s
+syntax "S⟪ " exp_s " ⟫" : term
 macro_rules
   | `(S⟪ x ⟫) => `(𝔼ₛ.var)
   | `(S⟪ $n:num ⟫) => `(𝔼ₛ.nat $n)
@@ -74,7 +79,7 @@ macro_rules
       `(𝔼ₛ.ite S⟪ $eᵢ ⟫ S⟪ $eₜ ⟫ S⟪ $eₑ ⟫)
 
 #eval S⟪ if (x.1.1 = 0) then { x.1.2 + x.2 } else { x.1.2 * x.2 } ⟫
-#eval S⟪ 3 ⟫
+#eval S⟪ x ⟫
 
 inductive 𝕍ₛ where
   | nat (n : Nat) : 𝕍ₛ
@@ -98,17 +103,16 @@ def encodeEₜₛ : 𝔼ₜ → 𝕍ₛ
   | T⟪ ADD n ⟫ => (0, n)
   | T⟪ MUL n ⟫ => (1, n)
 
-macro "⌈" e:term "⌉" : term => do
-  `(encodeEₜₛ $e)
+macro "⌈ " e:exp_t " ⌉" : term => `(encodeEₜₛ T⟪ $e ⟫)
+macro "⌈ " e:term " ⌉" : term => `(encodeEₜₛ $e)
 
 #eval ⌈ T⟪ ADD 42 ⟫ ⌉
-#eval ⌈ T⟪ MUL 42 ⟫ ⌉
+#eval ⌈ MUL 42 ⌉
 
 def encodeVₜₛ : 𝕍ₜ → 𝕍ₛ
   | .nat n => n
 
-macro "⌈" e:term "⌉" : term => do
-  `(encodeVₜₛ $e)
+macro "⌈ " e:term " ⌉" : term => `(encodeVₜₛ $e)
 
 #eval ⌈ 42 ⌉
 
@@ -153,10 +157,10 @@ def semₛ : 𝔼ₛ → 𝕍ₛ → Option 𝕍ₛ
       | 0 => semₛ eₑ v
       | _ => semₛ eₜ v
 
-macro "⟦" e:term "⟧" : term => do
-  `(semₛ $e)
+macro "⟦ " e:exp_s " ⟧" : term => `(semₛ S⟪ $e ⟫)
+macro "⟦ " e:term " ⟧" : term => `(semₛ $e)
 
-#eval if let some v := ⟦ S⟪ 1 + 2 * 3 ⟫ ⟧ 0 then v else 99
+#eval if let some v := ⟦ (3 : 𝔼ₛ) ⟧ 0 then v else 99
 
 def Iₛₜ : 𝔼ₛ := S⟪ if (x.1.1 = 0) then { x.1.2 + x.2 } else { x.1.2 * x.2 } ⟫
 
