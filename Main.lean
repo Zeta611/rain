@@ -179,3 +179,7 @@ def Iₛₜ : 𝔼ₛ := S⟪
 
 #eval if let some v := ⟦ Iₛₜ ⟧ (⌈ T⟪ MUL 3 ⟫ ⌉, ⌈ 4 ⌉)
   then v else 99
+
+theorem Iₛₜ_correctness : ∀ (e : 𝔼ₜ) (i : 𝕍ₜ), ⟦ Iₛₜ ⟧ (⌈ e ⌉, ⌈ i ⌉) = ⌈⟦ e ⟧ i⌉ := by
+  intros e i
+  cases e <;> rfl
