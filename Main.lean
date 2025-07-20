@@ -166,8 +166,12 @@ def term42 := T⟪ ADD 42 ⟫
 ⟫
 #eval S⟪ x ⟫
 
+abbrev 𝔼ₜ := LangT.𝔼
+abbrev 𝔼ₛ := LangS.𝔼
+abbrev 𝕍ₜ := LangT.𝕍
+abbrev 𝕍ₛ := LangS.𝕍
 
-def encodeEₜₛ : LangT.𝔼 → LangS.𝕍
+def encodeEₜₛ : 𝔼ₜ → 𝕍ₛ
   | T⟪ ADD n ⟫ => (0, n)
   | T⟪ MUL n ⟫ => (1, n)
 
@@ -177,15 +181,14 @@ macro "⌈ " e:term " ⌉" : term => `(encodeEₜₛ $e)
 #eval ⌈ T⟪ ADD 42 ⟫ ⌉
 #eval ⌈ MUL 42 ⌉
 
-def encodeVₜₛ : LangT.𝕍 → LangS.𝕍
+def encodeVₜₛ : 𝕍ₜ → 𝕍ₛ
   | .nat n => n
 
 macro "⌈ " e:term " ⌉" : term => `(encodeVₜₛ $e)
 
 #eval ⌈ 42 ⌉
 
-
-def Iₛₜ : LangS.𝔼 := S⟪
+def Iₛₜ : 𝔼ₛ := S⟪
   if (x.1.1 = 0) then {
     x.1.2 + x.2
   } else {
@@ -199,6 +202,6 @@ def Iₛₜ : LangS.𝔼 := S⟪
 #eval if let some v := ⟦ Iₛₜ ⟧ (⌈ T⟪ MUL 3 ⟫ ⌉, ⌈ 4 ⌉)
   then v else 99
 
-theorem Iₛₜ_correctness : ∀ (e : LangT.𝔼) (i : LangT.𝕍), ⟦ Iₛₜ ⟧ (⌈ e ⌉, ⌈ i ⌉) = ⌈⟦ e ⟧ i⌉ := by
+theorem Iₛₜ_correctness : ∀ (e : 𝔼ₜ) (i : 𝕍ₜ), ⟦ Iₛₜ ⟧ (⌈ e ⌉, ⌈ i ⌉) = ⌈⟦ e ⟧ i⌉ := by
   intros e i
   cases e <;> rfl
