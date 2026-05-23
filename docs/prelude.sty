@@ -1,0 +1,545 @@
+\tracinglostchars=3
+
+\RequirePackage{suffix}
+
+\RequirePackage{relsize}
+
+\RequirePackage[noabbrev, nameinlink]{cleveref}
+
+\RequirePackage{soul}
+
+% \setcounter{localmathalphabets}{3}
+\RequirePackage[only, llbracket, rrbracket]{stmaryrd}
+\RequirePackage{bbold}
+\RequirePackage{anyfontsize}
+
+\RequirePackage{amsthm}
+\renewcommand\qedsymbol{$\blacksquare$}
+\RequirePackage{thmtools}
+\declaretheorem[name=Main Theorem, style=plain, numbered=no]{thm}
+\declaretheorem[name=Lemma, style=plain]{lem}
+\declaretheorem[name=Definition, style=definition, qed=$\square$]{defn}
+\declaretheorem[name=Notation, style=remark, numbered=no]{nota}
+
+\ifpdftex
+  \DeclareMathAlphabet{\mathsf}{OT1}{LibertinusSans-LF}{m}{n}
+  \SetMathAlphabet{\mathsf}{bold}{OT1}{LibertinusSans-LF}{bx}{n}
+
+  \DeclareSymbolFont{parenthesis}{OT1}{ntxr}{m}{n}
+  \DeclareMathDelimiter{(}{\mathopen}{parenthesis}{"28}{largesymbols}{"00}
+  \DeclareMathDelimiter{)}{\mathclose}{parenthesis}{"29}{largesymbols}{"01}
+
+  \DeclareFontFamily{U}{bbold}{}
+  \DeclareFontShape{U}{bbold}{m}{n}{
+  <-5.5> s*[0.96] bbold5
+  <5.5-6.5> s*[0.96] bbold6
+  <6.5-7.5> s*[0.96] bbold7
+  <7.5-8.5> s*[0.96] bbold8
+  <8.5-9.5> s*[0.96] bbold9
+  <9.5-11> s*[0.96] bbold10
+  <11-15> s*[0.96] bbold12
+  <15-> s*[0.96] bbold17
+  }{}
+
+  % to avoid ``Too many math alphabets used in version normal.''
+  % cf. https://tex.stackexchange.com/a/243541
+  % \newcommand\hmmax0
+  % \newcommand\bmmax1
+  % \RequirePackage{bm}
+  \RequirePackage[artemisia]{textgreek}
+\fi
+
+\RequirePackage{mathpartir}
+
+% FIX: simplebnf can't be used
+\RequirePackage{simplebnf}
+\SetBNFLayout{
+  colsep = 2pt,
+  column{2} = {mode=dmath},
+  column{4} = {mode=text, font=\ttfamily},
+}
+% \RequirePackage{mathpartir}
+
+
+% NOTE: Custom commands
+\newcommand\IRES{\ensuremath{\text{IR}_{\text{ES}}}}
+
+\def\?{\mskip-1mu}
+\newcommand\ccirc{\mathbin{\vcenter{\hbox{$\mathsmaller\circ$}}}}
+\newcommand\Comp\ccirc
+
+\ifpdftex
+  \newcommand*\Plain[1]{\text{\textcolor{Black}{$#1$}}}
+\else
+  \newcommand*\Plain[1]{\mathcolor{Black}{\symit{#1}}}
+\fi
+
+\ExplSyntaxOn
+% Dispatch into different commands based on the language code
+\cs_new:Nn \__dispatch_color:n
+  {
+    \str_case:nn {#1}
+      {
+        {L} {Black}
+        {I} {RoyalBlue}
+        {A} {RedOrange}
+        {M} {Black}
+        {S} {RoyalBlue}
+        {T} {RedOrange}
+      }
+    % Black
+  }
+
+\cs_new:Nn \__dispatch_tfont:n
+  {
+    \str_case:nn {#1}
+      {
+        {L} {\sffamily\upshape\mdseries}
+        {I} {\rmfamily\upshape\bfseries}
+        {A} {\ttfamily\upshape\mdseries}
+        {M} {\sffamily\upshape\mdseries}
+        {S} {\rmfamily\upshape\bfseries}
+        {T} {\ttfamily\upshape\mdseries}
+      }
+  }
+
+\ifpdftex
+  \cs_new:Nn \__dispatch_mfont:n
+    {
+      \str_case:nn {#1}
+        {
+          {L} {\mathsf}
+          {I} {\mathbf}
+          {A} {\mathtt}
+          {M} {\mathsf}
+          {S} {\mathbf}
+          {T} {\mathtt}
+        }
+    }
+
+  \cs_new:Nn \__dispatch_gfont:n
+    {
+      \str_case:nn {#1}
+        {
+          {L} {
+            \upshape\mdseries
+            \renewcommand\textgreekfontmap{
+              {phv/*/*}{U/psy/*/*}
+              {*/bx/n}{U/eur/b/n}
+              {*/b/n}{U/eur/b/n}
+              {*/*/n}{U/eur/m/n}
+              {*/*/it}{OML/*/*/*}
+            }
+          }
+          {I} {
+            \rmfamily\upshape\bfseries
+          }
+          {A} {
+            \upshape\mdseries
+            \renewcommand\textgreekfontmap{
+              {eur/*/*}{U/eur/*/*}
+              {phv/*/*}{U/psy/*/*}
+            }
+          }
+          {M} {
+            \upshape\mdseries
+            \renewcommand\textgreekfontmap{
+              {phv/*/*}{U/psy/*/*}
+              {*/bx/n}{U/eur/b/n}
+              {*/b/n}{U/eur/b/n}
+              {*/*/n}{U/eur/m/n}
+              {*/*/it}{OML/*/*/*}
+            }
+          }
+          {S} {\rmfamily\upshape\bfseries}
+          {T} {
+            \upshape\mdseries
+            \renewcommand\textgreekfontmap{
+              {eur/*/*}{U/eur/*/*}
+              {phv/*/*}{U/psy/*/*}
+            }
+          }
+        }
+    }
+\else
+  \cs_new:Nn \__dispatch_mfont:n
+    {
+      \str_case:nn {#1}
+        {
+          {L} {\symsfup}
+          {I} {\symbfup}
+          {A} {\symtt}
+          {M} {\symsfup}
+          {S} {\symbfup}
+          {T} {\symtt}
+        }
+    }
+\fi
+
+\cs_new:Nn \__dispatch_name:n
+  {
+    \str_case:nn {#1}
+      {
+        {L} {\LAM}
+        {I} {\IMP}
+        {A} {\ASM}
+        {M} {\MET}
+        {S} {\SRC}
+        {T} {\TGT}
+      }
+  }
+
+\newcommand*\Ltext[2]{%
+  \text{\textcolor{\__dispatch_color:n{#1}}{\__dispatch_tfont:n{#1}{#2}}}%
+}
+\ifpdftex
+  \newcommand*\Lgreek[2]{%
+    \text{\textcolor{\__dispatch_color:n{#1}}{\__dispatch_gfont:n{#1}{#2}}}%
+  }
+\fi
+\newcommand*\Lmath[2]{%
+  \mathcolor{\__dispatch_color:n{#1}}{\__dispatch_mfont:n{#1}{#2}}%
+}
+\newcommand*\Lname[1]{\__dispatch_name:n{#1}}
+\ExplSyntaxOff
+
+\newcommand*\textL[1]{\Ltext L{#1}}
+\newcommand*\textI[1]{\Ltext I{#1}}
+\newcommand*\textA[1]{\Ltext A{#1}}
+\newcommand*\textM[1]{\Ltext M{#1}}
+\newcommand*\textS[1]{\Ltext S{#1}}
+\newcommand*\textT[1]{\Ltext T{#1}}
+
+\newcommand*\mathL[1]{\Lmath L{#1}}
+\newcommand*\mathI[1]{\Lmath I{#1}}
+\newcommand*\mathA[1]{\Lmath A{#1}}
+\newcommand*\mathM[1]{\Lmath M{#1}}
+\newcommand*\mathS[1]{\Lmath S{#1}}
+\newcommand*\mathT[1]{\Lmath T{#1}}
+
+\newcommand\LAM{\ensuremath{\mathL{\lambda}}}
+\newcommand\IMP{\textI{IMP}}
+\newcommand\ASM{\textA{ASM}}
+\newcommand\MET{\textM{M}}
+\newcommand\SRC{\textS{S}}
+\newcommand\TGT{\textT{T}}
+
+% Prohibit a line break after the hyphen but allow normal hyphenation in the following word
+% Use like `\SRC*interpreter`
+\WithSuffix\newcommand\LAM*{\LAM\nobreakdash-\hspace{0pt}}
+\WithSuffix\newcommand\IMP*{\IMP\nobreakdash-\hspace{0pt}}
+\WithSuffix\newcommand\ASM*{\ASM\nobreakdash-\hspace{0pt}}
+\WithSuffix\newcommand\MET*{\MET\nobreakdash-\hspace{0pt}}
+\WithSuffix\newcommand\SRC*{\SRC\nobreakdash-\hspace{0pt}}
+\WithSuffix\newcommand\TGT*{\TGT\nobreakdash-\hspace{0pt}}
+
+\NewDocumentCommand\Intp{ s m m d<> }
+  {
+    \IfBooleanTF{#1}
+      {\smash{\Ltext{#2}{I}_{\Lname{#2}}\IfValueTF{#4}{^{#4\mskip1mu\Lname{#3}}}{^{\Lname{#3}}}}}
+      {\Ltext{#2}{I}_{\Lname{#2}}\IfValueTF{#4}{^{#4\mskip1mu\Lname{#3}}}{^{\Lname{#3}}}}
+  }
+
+\ifpdftex
+  % Workaround to get bold greek
+  \NewDocumentCommand\Conc{ m d<> }
+    {\Lgreek{#1}{\textgamma}\IfValueT{#2}{^{#2}}}
+
+  \NewDocumentCommand\Abst{ m d<> }
+    {\Lgreek{#1}{\textalpha}\IfValueT{#2}{^{#2}}}
+
+  \NewDocumentCommand\Stt{ s m d<> }
+    {
+      \IfBooleanTF{#1}
+        {
+          \smash{\Lmath{#2}{\Lgreek{#2}{\textsigma}\IfValueT{#3}{^{#3}}}}
+        }
+        {
+          \Lmath{#2}{\Lgreek{#2}{\textsigma}\IfValueT{#3}{^{#3}}}
+        }
+    }
+\else
+  \NewDocumentCommand\Conc{ m d<> }
+    {\Lmath{#1}{\gamma}\IfValueT{#2}{^{#2}}}
+
+  \NewDocumentCommand\Abst{ m d<> }
+    {\Lmath{#1}{\alpha}\IfValueT{#2}{^{#2}}}
+
+  \NewDocumentCommand\Stt{ m d<> }
+    {\Lmath{#1}{\sigma}\IfValueT{#2}{^{#2}}}
+\fi
+
+\DeclarePairedDelimiterX\Set[2]\{\}{#1 \:\delimsize\vert\: #2}
+\DeclarePairedDelimiter\Tup\langle\rangle
+\ifpdftex
+  \newcommand\PE{\mathcal{P\mskip-1.3mu E}}
+\else
+  \newcommand\PE{\symcal{P\mskip-1.3mu E}}
+\fi
+\DeclarePairedDelimiterXPP{\Pe}[2]{\PE}(){}{#1, #2}
+\DeclarePairedDelimiterXPP{\Pow}[1]{\wp}(){}{#1}
+
+\NewDocumentCommand\Dom{s m m d<>}
+  {%
+    \IfBooleanTF{#1}
+      {\smash{\Lmath{#2}{\mathbb{#3}\IfValueT{#2}{_{\Lname{#2}}}\IfValueT{#4}{^{#4}}}}}%
+      {\Lmath{#2}{\mathbb{#3}\IfValueT{#2}{_{\Lname{#2}}}\IfValueT{#4}{^{#4}}}}%
+  }
+
+\NewDocumentCommand\Dommath{s m m d<>}
+  {%
+    \IfBooleanTF{#1}
+      {\Plain{\smash{\Lmath{#2}{\mathbb{#3}\IfValueT{#2}{_{\Lname{#2}}}\IfValueT{#4}{^{#4}}}}}}%
+      {\Plain{\Lmath{#2}{\mathbb{#3}\IfValueT{#2}{_{\Lname{#2}}}\IfValueT{#4}{^{#4}}}}}%
+  }
+
+\newcommand\leM{\mathrel{\mathM{\sqsubseteq_{\MET}}}}
+\newcommand\leS{\mathrel{\mathS{\sqsubseteq_{\SRC}}}}
+\newcommand\leT{\mathrel{\mathT{\sqsubseteq_{\TGT}}}}
+
+\ExplSyntaxOn
+\DeclarePairedDelimiter\__sem\llbracket\rrbracket
+\NewDocumentCommand \Sem { s o m m d<> }
+  {
+    \mathcolor { \__dispatch_color:n {#3} }
+    {
+      \IfBooleanTF {#1}
+        { \__sem* { \__dispatch_mfont:n {#3} {\ifblank{#4}{\,\cdot\,}{#4}} } }
+        {
+          \IfNoValueTF {#2}
+            { \__sem { \__dispatch_mfont:n {#3} {\ifblank{#4}{\,\cdot\,}{#4}} } }
+            { \__sem[#2] { \__dispatch_mfont:n {#3} {\ifblank{#4}{\,\cdot\,}{#4}} } }
+        }
+      \IfValueT {#5} { \sp{#5} }
+    }
+  }
+
+\DeclarePairedDelimiter\__enc\lceil\rceil
+\ProvideDocumentCommand \Enc { s o m m m } {}
+\newcommand\IncludeEnc{
+  \RenewDocumentCommand \Enc { s o m m m }
+    {
+      \mathcolor { \__dispatch_color:n {##3} }
+      {
+        \IfBooleanTF {##1}
+          { \__enc* { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+          {
+            \IfNoValueTF {##2}
+              { \__enc { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+              { \__enc[##2] { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+          }
+        \sb{\Ltext{##3}{\Lname{##3}}}
+        \sp{\Ltext{##4}{\Lname{##4}}}
+      }
+    }
+}
+\IncludeEnc
+
+\newcommand\OmitEnc{
+  \RenewDocumentCommand \Enc { s o m m m }
+    {
+      \mathcolor { \__dispatch_color:n {##3} }
+      {
+        \IfNoValueTF {##2}
+          { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} }
+          { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} }
+      }
+    }
+}
+
+\newcommand\OmitSubEnc{
+  \RenewDocumentCommand \Enc { s o m m m }
+    {
+      \mathcolor { \__dispatch_color:n {##3} }
+      {
+        \IfBooleanTF {##1}
+          { \__enc* { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+          {
+            \IfNoValueTF {##2}
+              { \__enc { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+              { \__enc[##2] { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+          }
+      }
+    }
+}
+
+\DeclarePairedDelimiter\__dec\lfloor\rfloor
+\ProvideDocumentCommand \Dec { s o m m m } {}
+\newcommand\IncludeDec{
+  \RenewDocumentCommand \Dec { s o m m m }
+    {
+      \mathcolor { \__dispatch_color:n {##3} }
+      {
+        \IfBooleanTF {##1}
+          { \__dec* { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+          {
+            \IfNoValueTF {##2}
+              { \__dec { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+              { \__dec[##2] { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+          }
+        \sp{\Ltext{##3}{\Lname{##3}}}
+        \sb{\Ltext{##4}{\Lname{##4}}}
+      }
+    }
+}
+\IncludeDec
+
+\newcommand\OmitDec{
+  \RenewDocumentCommand \Dec { s o m m m }
+    {
+      \mathcolor { \__dispatch_color:n {##3} }
+      {
+        \IfNoValueTF {##2}
+          { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} }
+          { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} }
+      }
+    }
+}
+
+\newcommand\OmitSubDec{
+  \RenewDocumentCommand \Dec { s o m m m }
+    {
+      \mathcolor { \__dispatch_color:n {##3} }
+      {
+        \IfBooleanTF {##1}
+          { \__dec* { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+          {
+            \IfNoValueTF {##2}
+              { \__dec { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+              { \__dec[##2] { \__dispatch_mfont:n {##3} {\ifblank{##5}{\,\cdot\,}{##5}} } }
+          }
+      }
+    }
+}
+\ExplSyntaxOff
+
+\newcommand\domto{\mathbin{\to}}
+\newcommand\parto{\mathbin{\rightharpoonup}}
+\newcommand\ABS{\sharp}
+\newcommand*\func[2]{\lambda #1.\,#2}
+\newcommand*\scond[3]{\text{\textbb{(}}#1\mathbin{\text{\textbb{?}}}#2\mathbin{\text{\textbb{:}}}#3\text{\textbb{)}}}
+\newcommand\cons{\mathbin{::}}
+\newcommand\concat{\mathbin{+\negthickspace+}}
+\DeclareMathOperator*{\Concat}{+\negthickspace+}
+
+\newcommand*\Tadd[1]{\textT{ADD $\mathT{#1}$}}
+\newcommand*\Tmult[1]{\textT{MUL $\mathT{#1}$}}
+\newcommand*\Tseq[2]{\textT{$\mathT{#1}$; $\mathT{#2}$}}
+
+\newcommand*\Sadd[2]{\textS{$\mathS{#1}$ + $\mathS{#2}$}}
+\newcommand*\Smult[2]{\textS{$\mathS{#1}$ \textasteriskcentered{} $\mathS{#2}$}}
+\newcommand*\Sequ[2]{\textS{$\mathS{#1}$ == $\mathS{#2}$}}
+\newcommand*\Spair[2]{\textS{($\mathS{#1}$, $\mathS{#2}$)}}
+\newcommand*\Sfst[1]{\textS{$\mathS{#1}$.1}}
+\newcommand*\Ssnd[1]{\textS{$\mathS{#1}$.2}}
+\newcommand*\Scond[3]{\textS{if ($\mathS{#1}$) \{$\mathS{#2}$\} else \{$\mathS{#3}$\}}}
+
+\newcommand*\Snot[1]{\textS{not $\mathS{#1}$}}
+\newcommand*\Sread[1]{\textS{\textasteriskcentered{}$\mathS{#1}$}}
+
+\newcommand\Sskip{\textS{skip}}
+\newcommand*\Sasgn[2]{\textS{\textasteriskcentered{}$\mathS{#1}$ = $\mathS{#2}$}}
+\newcommand*\Sasgnvar[2]{\textS{$\mathS{#1}$ = $\mathS{#2}$}}
+\newcommand*\Sseq[2]{\textS{$\mathS{#1}$; $\mathS{#2}$}}
+\newcommand*\Sif[3]{\textS{if ($\mathS{#1}$) \{$\mathS{#2}$\} else \{$\mathS{#3}$\}}}
+\newcommand*\Swhile[2]{\textS{while ($\mathS{#1}$) \{$\mathS{#2}$\}}}
+
+
+\RequirePackage{listings}
+
+\lstdefinelanguage{Met}{
+  morekeywords=[1]{let, in, match, with, if, then, else, and, where},
+  % keywordstyle=[1]\color{ForestGreen},
+  keywordstyle=[1]\sffamily\itshape,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]",
+  alsoletter={_},
+  % identifierstyle=\color{Black},
+  commentstyle=\color{Gray}\ttfamily\itshape,
+  % stringstyle=\color{RedViolet}\ttfamily,
+  sensitive=true,
+}
+
+\lstdefinestyle{snippetMet}{
+  language=Met,
+  basicstyle=\linespread{0.9}\sffamily\small,%\bfseries\color{RoyalBlue},
+  numbers=left,
+  numberstyle=\footnotesize,
+  numbersep=8pt,
+  xleftmargin=1em,
+  breaklines=false,
+  tabsize=2,
+  showtabs=false,
+  columns=fullflexible,
+  extendedchars=true,
+  aboveskip=0pt,
+  belowskip=0pt,
+  mathescape,
+}
+
+\lstdefinestyle{inlineMet}{
+  language=Met,
+  keywordstyle=[1]\color{Black},
+  identifierstyle=\color{Black},
+  basicstyle=\sffamily,
+  mathescape,
+}
+
+\lstnewenvironment{metcode}[1][]{\lstset{style=snippetMet,#1}}{}
+\AtBeginEnvironment{metcode}{\let\@vspace\@vspace@orig
+  \let\@vspacer\@vspacer@orig}
+  
+\lstdefinelanguage{Src}{
+  % morekeywords=[1]{while, if, else, skip},
+  % keywordstyle=[1]\color{ForestGreen},
+  % keywordstyle=[1]\color{RoyalBlue}\bfseries,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]",
+  alsoletter={_},
+  % identifierstyle=\color{Black},
+  commentstyle=\color{Gray}\ttfamily\itshape,
+  % stringstyle=\color{RedViolet}\ttfamily,
+  sensitive=true,
+}
+
+\lstdefinestyle{snippetSrc}{
+  language=Src,
+  basicstyle=\linespread{0.9}\bfseries\color{RoyalBlue}\small,
+  numbers=left,
+  numberstyle=\footnotesize\color{Black},
+  numbersep=8pt,
+  xleftmargin=1em,
+  breaklines=false,
+  tabsize=2,
+  showtabs=false,
+  columns=fullflexible,
+  extendedchars=true,
+  aboveskip=0pt,
+  belowskip=0pt,
+  mathescape,
+}
+
+\lstdefinestyle{inlineSrc}{
+  language=Src,
+  keywordstyle=[1]\color{Black},
+  identifierstyle=\color{Black},
+  basicstyle=\bfseries,
+  mathescape,
+}
+
+\lstnewenvironment{srccode}[1][]{\lstset{style=snippetSrc,#1}}{}
+\AtBeginEnvironment{srccode}{\let\@vspace\@vspace@orig
+  \let\@vspacer\@vspacer@orig}
+
+\newcommand\TT{\mathtt{t\mspace{-5.5mu}t}}
+\newcommand\FF{\mathtt{f\mspace{-5.2mu}f}}
+
+% \newcommand{\crel}[1]{%
+%   \global\setbox1=\hbox{$#1$}%
+%   \global\dimen1=0.5\wd1
+%   \mathrel{\hbox to\dimen1{$#1$\hss}}&\mathrel{\mspace{-\thickmuskip}\hbox to\dimen1{}}%
+% }

@@ -1,0 +1,509 @@
+\documentclass[sigplan,screen]{acmart}
+\settopmatter{printfolios=true, printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{} 
+\makeatletter
+\renewcommand\@formatdoi[1]{\ignorespaces}
+\makeatother
+
+\usepackage{setspace}
+\usepackage{prelude}
+
+% NOTE: Typographically improved footnotes
+\let\origfootnote\footnote
+\renewcommand{\footnote}[1]{\kern.06em\origfootnote{#1}}
+\newcommand{\pfootnote}[1]{\kern-.06em\origfootnote{#1}}
+
+\citestyle{acmauthoryear}
+
+% WARN: Show citation keys; remove before submission
+% \usepackage[notcite]{showkeys}
+% \renewcommand*\showkeyslabelformat[1]{%
+%   \fbox{\parbox[t]{\marginparwidth}{\smaller[3]\raggedleft\path{#1}}}}
+
+% NOTE: Some typographical conventions
+% If an argument for a function is not delimited, use \: to make the application more obvious
+% For nested brackets, use \? or two, or even \! to reduce excessive spacings
+% For superscripts like \ABS after a big closing semantic bracket, use \? to make the superscript closer
+\begin{document}
+\include{header}
+
+\begin{abstract}
+Implementing sound static analyzers for new languages requires significant time and effort.
+We show that it is possible by partial evaluation to automatically retarget existing abstract interpreters for new languages.
+Given an existing abstract interpreter for a source language and a definitional interpreter for a new target language, we can derive a correct abstract interpreter for the target language by partially evaluating the abstract interpreter with respect to the definitional interpreter.
+We demonstrate our method on mini-languages and show that it is possible to mechanize the process with MetaOCaml.
+Our approach suggests a promising direction to reduce the burden of building new analyzers from scratch.
+\end{abstract}
+
+
+\maketitle
+
+\section{Introduction}\label{sec:prob}
+Abstract interpretation \citep{CouCou77Abstract} provides a systematic framework to construct sound static analyzers by overapproximating a concrete semantics for a language.
+While abstract interpreters can be designed in a principled manner following a recipe \citep{RivYi20Introduction}, it is time-consuming to model both a concrete semantics of a language and a corresponding abstract semantics.
+This burden is compounded when an analysis designer repeats the process for every new target language.
+
+We propose automatically deriving abstract interpreters for new languages from an existing abstract interpreter.
+We show that partial evaluation \citep{Fut71Partial,Fut99Partial} of an abstract interpreter for a source language, using the semantics of target languages written in the source language in a form of a definitional interpreter \citep{Rey72Definitional}, leads to a retargeted sound abstract interpreter for the new target.
+This eliminates the need to build analyzers for new languages from scratch.
+
+Furthermore, we demonstrate using mini-languages that our approach is mechanizable by retargeting an abstract interpreter written in (BER)~MetaOCaml \citep{CalTahHuaLer03Implementing,Ole14Design}.
+
+
+\section{Our Approach}\label{sec:overview}
+There are three languages in play: a {\MET{}eta-language}, a {\SRC{}ource language}, and a new {\TGT{}arget language}.
+The \ul{meta}-language~\MET{} is the implementation language of the abstract interpreter for language~\SRC, which also serves as the \ul{source} language of a definitional interpreter for the new analysis \ul{target}~\TGT.
+
+Our goal is
+\begin{description}
+  \item[given] a concrete interpreter $\Intp ST$ for~\TGT{} written in~\SRC{} (a ``concrete \TGT*interpreter,'' see \cref{subsec:int}), and
+  \item[given] an abstract interpreter $\Intp MS<\ABS>$ for~\SRC{} written in~\MET{} (an ``abstract \SRC*interpreter,'' see \cref{subsec:aint}), to
+  \item[derive] an abstract interpreter $\Intp MT<\ABS>$ for~\TGT{} written in~\MET{} (an ``abstract \TGT*interpreter,'' see \cref{sec:correctness}).
+\end{description}
+
+A key observation is that partial evaluation~$\PE$ in the \MET*language (\cref{subsec:peval}) allows for a \emph{fully automatic} derivation of an abstract interpreter for~\TGT{}.
+In \cref{sec:correctness}, we show that the retargeted abstract interpreter is indeed sound:
+\OmitEnc
+\OmitDec
+\begin{restatable*}[Correctness of a Retargeted Abstract Interpreter]{thm}{correctness}\label{thm:correctness}
+  Retargeting an abstract interpreter~$\Intp*MS<\ABS>$ with respect to an interpreter~$\Intp ST$ results in a sound abstract interpreter~$\Intp*MT<\ABS> \triangleq \Pe[\big]{\Intp MS<\ABS>}{\Enc[\big]SM{\Intp ST}}$.
+\end{restatable*}
+
+We finish by presenting a mechanized mini-example in \cref{sec:example} to illustrate our approach with MetaOCaml.
+
+\section{The Ingredients}\label{sec:recipe}
+\IncludeEnc
+\IncludeDec
+\begin{nota}
+  We distinguish programs and values of each language using different typefaces and colors, e.g.,~$\mathM{p}$ for \MET-,~$\mathS{p}$ for \SRC-, and~$\mathT{p}$ for \TGT*programs.
+  Explicit language name subscripts may be used when they are helpful, e.g.,~$\Dom MP$, $\Dom SP$, and~$\Dom TP$.
+  Given domains~$\mathbb{D}_1$ and~$\mathbb{D}_2$, we denote the product as~$\mathbb{D}_1 \times \mathbb{D}_2$, disjoint union as~$\mathbb{D}_1 + \mathbb{D}_2$, and (Scott-)continuous function domain as~$\mathbb{D}_1 \domto \mathbb{D}_2$, where~$\times$ has the highest precedence, $+$ has lower precedence, and~$\domto$ the lowest; $\times$ and~$+$ are left-associative, whereas~$\domto$ is right-associative~\citep{Rey98Theories}.
+  We denote the set of partial functions from~$X$ to~$Y$ as~$X \parto Y$.
+  Angle brackets denote semantic tuples, e.g., $\Tup{v_1, v_2} \in \mathbb{D}_1 \times \mathbb{D}_2$ when $v_1 \in \mathbb{D}_1$ and $v_2 \in \mathbb{D}_2$.
+  $\scond{\cdot}{\cdot}{\cdot}$ is the semantic conditional operator.
+\end{nota}
+
+We now present the ingredients of our recipe.
+While our recipe is tuned to be readily applied to the mini-example of \cref{sec:example}, exact signatures for semantic functions and domains may be adapted to other forms.
+\begin{defn}[Syntax and Semantics]\label{def:synsem}
+  Let~\(\Dom MV\) be the set of values in~\MET,
+  where \(\Dom MV\) is closed under product $\Dom MV \times \Dom MV \subseteq \Dom MV$ and continuous functions $(\Dom MV \domto \Dom MV) \subseteq \Dom MV$;
+  and~\(\Dom SS\) and~\(\Dom TS\) be the sets of states in~\SRC{} and~\TGT.
+  Let~\(\Dom MP\),~\(\Dom SP\), and~\(\Dom TP\) be programs of each language~\MET,~\SRC, and~\TGT.
+  Then we have concrete semantics functions
+  \begin{equation*}
+    \Sem M{p} \in \Dom MV, \qquad
+    \Sem S{p} \in \Dom SS \domto \Dom SS,\text{ and } \quad
+    \Sem T{p} \in \Dom TS \domto \Dom TS
+  \end{equation*}
+  for all ~\(\mathM p \in \Dom MP\),~\(\mathS p \in \Dom SP\), and~\(\mathT p \in \Dom TP\).
+\end{defn}
+Moreover, each domain of defining-language values should be able to encode the programs and the values of the defined-language---this is expressed in \cref{def:encdec}.
+
+
+\subsection{An Interpreter for the New Language}\label{subsec:int}
+The first ingredient is the semantics of the new language~\TGT{}: a definitional interpreter~$\Intp ST$.
+This is written in the source language~\SRC{} for which we have an abstract interpreter~$\Intp*MS<\ABS>$.
+
+For an interpreter to accept programs of the target language, we need to embed the program and the initial state of the target language into the source language.
+\begin{defn}[Encoders and Decoders]\label{def:encdec}
+  An \emph{input encoder} $\Enc TS{\cdot, \cdot} \in \Dom TP \times \Dom TS \domto \Dom SS$ is a function that encodes a \TGT*program and a \TGT*state into an \SRC*state.
+  This induces an \emph{output decoder}~$\Dec ST{} \in \Dom SS \parto \Dom TS$, which is a partial function, where
+  \begin{equation*}
+    \Dec[\big]ST{\Enc TS{p,\Stt T}} = \Stt T
+  \end{equation*}
+  for all $\mathT{p} \in \Dom TP$ and $\Stt T \in \Dom TS$.
+  We overload the notation for the lifted decoder, that is, for any \(\mathS{\overline{\Stt S}} \in \Pow{\Dom SS}\) we have
+  \begin{equation*}
+    \Dec ST{\overline{\Stt S}} = \{ \Dec ST{\Stt S} \mid \Stt S \in \mathS{\overline{\Stt S}} \}. \qedhere
+  \end{equation*}
+\end{defn}
+In practice, encoders and decoders are usually part of an interpreter as parsers, and we can assume that they are available.
+For brevity, we shall omit the subscripts and superscripts of encoders and decoders as they can be unambiguously inferred.
+
+%% NOTE: Omitting encoders and decoders for brevity, but keep them for correct typesetting
+%\OmitEnc
+%\OmitDec
+\OmitSubEnc
+\OmitSubDec
+
+\begin{defn}[Concrete Interpreter]\label{def:int}
+  A concrete \TGT*interpreter~$\Intp ST \in \Dom SP$ is an \SRC*program that accepts an \SRC*state that encodes a \TGT*program and a \TGT*state, and returns an \SRC*value that encodes the evaluation result.
+  That is, $\Intp ST$ satisfies
+  \begin{equation}\label{eq:int}
+    %\Sem[\big]S{\Intp ST} \mathS{\Tup{\Enc TS{e}, \Enc TS{i}}} = \Enc[\big]TS{\Sem T{e}\: i}
+    \Dec[\big]ST{\Sem[\big]S{\Intp ST} \Enc TS{p,\Stt T}} = \Sem T{p}\: \Stt T
+  \end{equation}
+  for all $\mathT{p} \in \Dom TP$ and $\Stt T \in \Dom TS$.
+\end{defn}
+
+Note that \cref{eq:int} enforces a few requirements on~\SRC.
+\SRC*language should be expressive enough to encode the programs and values of \TGT,
+and to write an interpreter for \TGT.
+%Note that \cref{eq:int} enforces a few requirements on the expressiveness of the domains.
+%\SRC*language should to be able to construct and represent a tuple, as well as to encode the programs and values of \TGT.
+%And of course, \SRC*language should be able to write an interpreter for \TGT.
+%These explain the requirements in \cref{def:synsem}.
+
+
+\subsection{An Existing Abstract Interpreter}\label{subsec:aint}
+Now we need the second ingredient: an existing abstract interpreter for~\SRC,~$\Intp*MS<\ABS>$.
+This is written in the meta-language~\MET{} for which we have a partial evaluator~$\PE$.
+
+We define the abstract domain and the concretization function for the source language~\SRC{} in which the abstract interpreter~$\Intp*MS<\ABS>$ operates.
+\begin{defn}[Abstract Domain and Concretization]\label{def:conc}
+  The abstract domain~$\Dom*SS<\ABS>$ of~\SRC{} approximates the concrete domain~$\Dom*SS$ with an approximation partial order~$\leS$.
+  An abstract state can be concretized to a set of concrete states using a monotonic concretization function~$\Conc S \in \Dom*SS<\ABS> \domto \Pow{\Dom SS}$, where for any~$\smash{\mathS{{\Stt S}_1^\ABS}}, \smash{\mathS{{\Stt S}_2^\ABS}} \in \Dom*SS<\ABS>$, we have \[\mathS{{\Stt S}_1^\ABS} \leS \mathS{{\Stt S}_2^\ABS} \implies \Conc S \: \mathS{{\Stt S}_1^\ABS} \subseteq \Conc S \: \mathS{{\Stt S}_2^\ABS}.\]
+  Moreover, we overload the notation of encoder and decoder for programs and abstract states, that is, we have \(\Enc SM{\cdot} \in \Dom SP + \Dom*SS<\ABS> \domto \Dom MV\), \(\Enc SM{\cdot,\cdot} \in \Dom SP \times \Dom*SS<\ABS> \domto \Dom MV \times \Dom MV\) and \(\Dec MS{} \in \Dom MV \parto \Dom*SS<\ABS>\), where
+  \begin{equation*}
+    \Enc SM{p,\Stt S<\ABS>} = \Tup{\Enc SM{p}, \Enc SM{\Stt S<\ABS>}}
+  \end{equation*}
+  and
+  \begin{equation*}
+    \Dec[\big]MS{\Enc SM{\Stt S<\ABS>}} = \Stt S<\ABS>. \qedhere
+  \end{equation*}
+\end{defn}
+
+With \cref{def:conc}, we can define a correctness condition for an abstract \SRC*interpreter~$\Intp MS<\ABS>$.
+\begin{defn}[Abstract Interpreter]\label{def:aint}
+  An abstract \SRC*interpreter~$\Intp*MS<\ABS> \in \Dom MP$ is an \MET*program that accepts an \SRC*program and an \SRC*state, and returns a sound approximation of the evaluation result with respect to the concretization~$\Conc S$, as defined in \cref{def:conc}.
+  That is, $\Intp*MS<\ABS>$~satisfies
+  \begin{equation}\label{eq:aint}
+    \Stt S \in \Conc S \: \Stt S<\ABS>
+    \implies
+    \Sem S{p}\: \Stt S \in \Conc S \: \Dec[\big]MS{\Sem[\big]M{\Intp MS<\ABS>} \Enc SM{p,\Stt S<\ABS>}}
+  \end{equation}
+  for all~$\mathS{p} \in \Dom SP$,~$\Stt*S<\ABS> \in \Dom*SS<\ABS>$ and~$\Stt S \in \Dom*SS$.
+\end{defn}
+
+Again, \cref{eq:aint} imposes requirements on the expressiveness of \MET.
+The meta-language~\MET{} should be expressive enough to encode the programs and values of \SRC, and write an abstract interpreter for \SRC.
+In addition,~\MET{} should be able to construct and represent tuples and functions, which explains the requirements in \cref{def:synsem}.
+
+
+\subsection{Retargeting using a Partial Evaluator}\label{subsec:peval}
+The final ingredient for automatically deriving a retargeted abstract interpreter is a partial evaluator for \MET: $\PE \in \Dom MP \times \Dom MV \domto \Dom MP$.
+\begin{defn}[Partial Evaluator]\label{def:peval}
+  A partial evaluator~$\PE \in \Dom MP \times \Dom MV \domto \Dom MP$ accepts two inputs,
+  \begin{enumerate}
+    \item a program~$\mathM{p} \in \Dom MP$ that accepts~$\mathM{\Tup{v_1, v_2}} \in \Dom MV$, and
+    \item a value~$\mathM{v_1} \in \Dom MV$,
+  \end{enumerate}
+  and returns a specialized program that accepts the remaining value~$\mathM{v_2} \in \Dom MV$.
+  That is, $\PE$~satisfies
+  \begin{equation}\label{eq:peval}
+    \Sem M{\Pe[\big]{p}{v_1}}\: \mathM{v_2} = \Sem M{p} \mathM{\Tup{v_1, v_2}}
+  \end{equation}
+  for all~$\mathM{p} \in \Dom MP$ and~$\mathM{v_1}, \mathM{v_2} \in \Dom MV$.
+\end{defn}
+
+From \cref{eq:peval}, we can specialize an abstract interpreter with a target program by substituting~$\Intp MS<\ABS>$ for~$\mathM{p}$:
+\begin{equation}\label{eq:fut}
+  \Sem[\big]M{\Pe[\big]{\Intp MS<\ABS>}{\Enc SM{p}}}\: \Enc SM{\Stt S<\ABS>}
+  = \Sem[\big]M{\Intp MS<\ABS>}\: \Enc SM{p, \Stt S<\ABS>}.
+\end{equation}
+This is essentially the first Futamura projection extended to abstract interpreters.
+
+
+\section{The Correctness Theorem}\label{sec:correctness}
+Before we show the \hyperref[thm:correctness]{main theorem}, we prove the correctness of a meta-level analysis.
+
+\begin{lem}[Correctness of a Meta-level Analysis]\label{lem:meta}
+  Analyzing a \TGT*program using an abstract interpreter~$\Intp MS<\ABS>$ along with the concrete interpreter~$\Intp ST$ is sound.
+\end{lem}
+\begin{proof}
+  Suppose we are given a \TGT*program~$\mathT{p}$ and a \TGT*state~$\Stt T$.
+  Then by substituting $\Intp ST$ for $\mathS{p}$ and $\mathS{{\Enc TS{p,\Stt T}}}$ for $\Stt S$ in \cref{eq:aint},
+  \begin{align*}
+    \Enc TS{p,\Stt T} \in \Conc S \: \Stt S<\ABS>
+    & \implies
+    \Sem[\big]S{\Intp ST} \Enc TS{p,\Stt T}
+    \in
+    \Conc S\: \Dec[\big]MS{\Sem[\big]M{\Intp MS<\ABS>} \: \Enc SM{\Intp ST, \Stt S<\ABS>}} \\
+    & \implies
+    \Dec[\big]ST{\Sem[\big]S{\Intp ST} \Enc TS{p,\Stt T}}
+    \in
+    \Dec[\big]ST{\Conc S\: \Dec[\big]MS{\Sem[\big]M{\Intp MS<\ABS>} \: \Enc SM{\Intp ST, \Stt S<\ABS>}}}
+  \end{align*}
+  Then from \cref{eq:int}, $\Dec[\big]ST{\Sem[\big]S{\Intp ST} \Enc TS{p,\Stt T}}$ is precisely $\Sem T{p}\: \Stt T$.
+  Thus the analysis~$\Sem[\big]M{\Intp MS<\ABS>} \: \Enc SM{\Intp ST, \Stt S<\ABS>}$ subsumes the concrete evaluation $\Sem T{p}\: \Stt T$ when decoded.
+\end{proof}
+
+\correctness
+\begin{proof}
+  Given a partial evaluator~$\PE$ that satisfies \cref{eq:peval}, we can partially evaluate the abstract interpreter~$\Intp*MS<\ABS>$ with respect to the interpreter~$\Intp*ST$ as
+  \begin{equation*}
+    \Intp*MT<\ABS> \triangleq \Pe[\big]{\Intp*MS<\ABS>}{\Enc[\big]SM{\Intp*ST}}.
+  \end{equation*}
+
+  We now show that the specialized~$\Intp*MT<\ABS>$ is indeed a correct static analyzer of~\TGT.
+  Fix a \TGT*program~$\mathT{p}$ and a \TGT*state~$\Stt T$.
+  Given \(\Stt S<\ABS>\) such that \(\Enc TS{p,\Stt T} \in \Conc S \: \Stt S<\ABS>\),
+  from \cref{eq:fut},
+  \begin{equation*}
+    \Sem[\big]M{\Intp*MT<\ABS>}\: \Enc SM{\Stt S<\ABS>} = \Sem[\big]M{\Pe[\big]{\Intp*MS<\ABS>}{\Enc SM{\Intp*ST}}}\: \Enc SM{\Stt S<\ABS>} = \Sem[\big]M{\Intp*MS<\ABS>}\: \Enc SM{\Intp*ST, \Stt S<\ABS>}
+  \end{equation*}
+  and from \cref{lem:meta}, this soundly approximates the evaluation
+  \begin{equation*}
+    \Sem T{p} \: \Stt T
+    \in
+    \Dec[\big]ST{\Conc S\: \Dec[\big]MS{\Sem[\big]M{\Intp MS<\ABS>} \: \Enc SM{\Intp ST, \Stt S<\ABS>}}}
+  \end{equation*}
+  Thus the specialized abstract interpreter~$\Intp*MT<\ABS>$ is correct.
+\end{proof}
+
+
+\section{A Mechanized Example}\label{sec:example}
+We now present a concrete example that demonstrates how our approach retargets an abstract interpreter~$\Intp*MS<\ABS>$ for a source language~\SRC{} to an abstract interpreter~$\Intp*MT<\ABS>$ for a target language~\TGT.
+For mechanization, we use MetaOCaml to be the meta-language~\MET.
+This example illustrates how our method works in practice and highlights the properties of the resulting retargeted abstract interpreter.
+
+Consider mini-languages~\TGT{} and~\SRC:
+\begin{center}
+  \begin{bnf}
+    \mathT{p} : $\Dom TP$ ::= \Tadd{n} // \Tmult{n} // \Tseq{p}{p}
+  \end{bnf}
+\end{center}
+\begin{center}
+  \begin{bnf}
+    \mathS{e} : $\Dom SE$ ::=
+    | $\mathS{n}$ // \Sread{e} // \Sadd{e}{e} // \Smult{e}{e} // \Sequ{e}{e}
+    ;;
+    \mathS{p} : $\Dom SP$ ::=
+    | \Sskip{} // \Sasgn{e}{e} // \Sseq{p}{p}
+    | \Sif{e}{p}{p} // \Swhile{e}{p}
+  \end{bnf}
+\end{center}
+\TGT{}~is an assembly-like language with a single register, e.g., \Tseq{\Tadd{42}}{\Tmult{3}} returns~\((\Stt T + 42) \times 3\), given an initial register value~\(\Stt T\).
+%\TGT{}~is a set of single instructions that either add or multiply a number to a user input, e.g., \Tadd{42} adds 42 to an input and \Tmult{42} multiplies an input by 42.
+\SRC{}~is a structured language with a memory that allows arbitrary assignment at natural number addresses, e.g, \Sasgn{\textS{(\Sadd{13}{37})}}{0} transforms the value at address~50 to~0.
+
+% \IncludeEnc
+% \IncludeDec
+Given the integer value domains $\Dom TV = \Dom SV = \mathbb{Z}$ and state domains $\Dom TS = \Dom TV$ as a single register value and $\Dom SS = \mathS{\Dom S{\overline V}}$ as an array of memory values,
+the semantics~$\Sem T{}$ and~$\Sem S{}$ and the encoder~$\Enc TS{\cdot, \cdot}$ are given as follows:
+\begin{mathpar}
+  \Sem T{p} \in \Dom TV \domto \Dom TV \and
+  \Enc TS{p, \Stt T} \in \Dom S{\overline V} \\
+
+  \Sem T{\Tadd{n}} \triangleq \func{\Stt T}{\mathT{n} + \Stt T} \and
+  \Sem T{\Tmult{n}} \triangleq \func{\Stt T}{\mathT{n} \times \Stt T} \and
+  \Sem T{\Tseq{p_1}{p_2}} \triangleq \Sem T{p_2} \Comp \Sem T{p_1} \and
+  \Enc TS{\Tseq{p_1}{\Tseq{...}{p_k}}, \Stt T} \triangleq \Stt T \cons 2 \cons \Concat_{\mathT{i}=\mathT{1}}^{\mathT{k}} \bigl[\scond{\mathT{p_i} = \Tadd{n}}{1}{2}, \mathT{n}\bigr] \concat [0] \\
+
+  \Sem S{e} \in \Dom SS \domto \Dom SV \and
+  \Sem S{p} \in \Dom SS \domto \Dom SS \\
+
+  \Sem S{n} \triangleq \func{\Stt S}{\mathS{n}} \and
+  \Sem S{\Sread{e}} \triangleq \func{\Stt S}{\Stt S[\Sem S{e} \Stt S]} \and
+  \Sem S{\Sadd{e_1}{e_2}} \triangleq \func{\Stt S}{\Sem S{e_1} \Stt S + \Sem S{e_2} \Stt S} \and
+  \Sem S{\Smult{e_1}{e_2}} \triangleq \func{\Stt S}{\Sem S{e_1} \Stt S \times \Sem S{e_2} \Stt S} \and
+  \Sem S{\Sequ{e_1}{e_2}} \triangleq \func{\Stt S}{\scond{\Sem S{e_1} \Stt S = \Sem S{e_2} \Stt S}{1}{0}} \\
+
+  \Sem S{\Sskip{}} \triangleq \func{\Stt S}{\Stt S} \and
+  \Sem S{\Sasgn{e_1}{e_2}} \triangleq \func{\Stt S}{\Stt S[\Sem S{e_1} \mapsto \Sem S{e_2}]} \and
+  \Sem S{\Sseq{p_1}{p_2}} \triangleq \Sem S{p_2} \Comp \Sem S{p_1} \and
+  \Sem S{\Sif{e}{p_1}{p_2}} \triangleq \func{\Stt S}{\scond{\Sem S{e} \Stt S \ne 0}{\Sem S{p_1} \Stt S}{\Sem S{p_2} \Stt S}} \and
+  \Sem S{\Swhile{e}{p}} \triangleq \func{\Stt S}{\scond{\Sem S{e} \Stt S = 0}{\Stt S}{\Sem S{\Swhile{e}{p}} \Comp \Sem S{p} \: \Stt S}}
+\end{mathpar}
+
+To elaborate on the encoding~$\Enc TS{p, \Stt T}$, we place the register value~$\Stt T$ and the program counter---initially~2---at the first and second addresses.
+Each instruction is stored with an alignment of two words: the first cell stores the operation code---\textT{ADD} is~1 and \textT{MUL} is~2---and the second stores the argument.
+The program finishes with the operation code~0 for halting.
+We omit the presentation of~$\Dom MP$,~$\Dom MV$,~$\Enc SM{\cdot}$, and~$\Sem M{e}$ of MetaOCaml~(\MET) for brevity.
+The encoder~$\Enc SM{\cdot}$ is a typical parser that embeds the AST of an \SRC*program or an \SRC*value into its corresponding \MET*datatype representation.
+
+Now we can define the concrete \TGT*interpreter
+\begin{srccode}
+$\Intp ST ={}$while (*PC) {
+  if (*PC == 1) { R = R + *(PC + 1) }
+  else if (*PC == 2) { R = R * *(PC + 1) }
+  else { skip };
+  PC = PC + 2 }
+\end{srccode}
+where macros $\mathS{R} = \Sread{0}$ and $\mathS{PC} = \Sread{1}$ are used for convenience.
+
+The abstract interpreter~$\Intp*MS<\ABS>$ parameterized by the base value abstraction is shown below in (pseudo-)MetaOCaml. %in \cref{fig:impl}.
+Brackets \textsf{.<\textellipsis>.} wraps code to generate, and an escape \textsf{.\textasciitilde} represents a hole inside the code template.
+% \begin{figure}
+
+ \begin{metcode}
+let $\mathM{\Intp*MS<\ABS>(\textS{p}, \Stt S<\ABS>)}$ = $\mathM{\textM{evalp}^\ABS(\textS{p}, \Stt S<\ABS>)}$
+where $\mathM{\textM{evale}^\ABS(\mathS{e}, \Stt S<\ABS>)}$ = match $\mathS{e}$ with
+  | $\mathS{n} \to$ .<$\eta(\mathS{n})$>.
+  | $\Sread{e} \to$ .< .~$\Stt S<\ABS>$[.~$\mathM{\textM{evale}^\ABS(\mathS{e}, \Stt S<\ABS>)}$] >.
+  | $\Sadd{e_1}{e_2} \to$ .< .~$\mathM{\textM{evale}^\ABS(\mathS{e_1}, \Stt S<\ABS>)}$ $\mathbin{+^\ABS}$ .~$\mathM{\textM{evale}^\ABS(\mathS{e_2}, \Stt S<\ABS>)}$ >.
+  | $\Smult{e_1}{e_2} \to$ .< .~$\mathM{\textM{evale}^\ABS(\mathS{e_1}, \Stt S<\ABS>)}$ $\mathbin{\times^\ABS}$ .~$\mathM{\textM{evale}^\ABS(\mathS{e_2}, \Stt S<\ABS>)}$ >.
+  | $\Sequ{e_1}{e_2} \to$ .< .~$\mathM{\textM{evale}^\ABS(\mathS{e_1}, \Stt S<\ABS>)}$ $\mathbin{=^\ABS}$ .~$\mathM{\textM{evale}^\ABS(\mathS{e_2}, \Stt S<\ABS>)}$ >.
+and $\mathM{\textM{evalp}^\ABS(\mathS{p}, \Stt S<\ABS>)}$ = match $\mathS{p}$ with
+  | $\Sskip{} \to$ $\Stt S<\ABS>$
+  | $\Sasgn{e_1}{e_2} \to$ .< .~$\Stt S<\ABS>$[ .~$\mathM{\textM{evale}^\ABS(\mathS{e_1}, \Stt S<\ABS>)}$ $\mapsto^\ABS$ .~$\mathM{\textM{evale}^\ABS(\mathS{e_2}, \Stt S<\ABS>)}$ ] >.
+  | $\Sseq{p_1}{p_2} \to$ .< .~$\mathM{\textM{evalp}^\ABS(\mathS{p_2},
+             \textM{evalp}^\ABS(\mathS{p_1}, \Stt S<\ABS>))}$ >.
+  | $\Sif{e}{p_t}{p_f} \to$
+    .< let $\mathS{v^\ABS}$ = .~$\mathM{\textM{evale}^\ABS(\mathS{e}, \Stt S<\ABS>)}$ in
+       $\mathcal{F}^\ABS_{\ne 0}(\mathS{v^\ABS}, \textM{.\textasciitilde evalp}^\ABS(\mathS{p_t}, \Stt S<\ABS>))
+          \mathbin{\sqcup^\ABS}
+          \mathcal{F}^\ABS_{=0}(\mathS{v^\ABS}, \textM{.\textasciitilde evalp}^\ABS(\mathS{p_f}, \Stt S<\ABS>))$ >.
+  | $\Swhile{e}{p_b} \to$
+    .< let $\mathS{v^\ABS}$ = .~$\mathM{\textM{evale}^\ABS(\mathS{e}, \Stt S<\ABS>)}$ in
+      .~$\mathM{\textM{evalp}^\ABS(\mathS{p},
+                \textM{evalp}^\ABS(\mathS{p_b},
+                   \textM{.< } \mathcal{F}^\ABS_{\ne 0}(\mathS{v^\ABS}, \Stt S<\ABS>)\textM{ >.}))} \mathbin{\sqcup^\ABS} \mathcal{F}^\ABS_{=0}(\mathS{v^\ABS}, \Stt S<\ABS>)$ >.
+ \end{metcode}
+
+% \begin{metcode}
+% let $\mathM{\Intp*MS<\ABS>(\textS{p}, \Stt S<\ABS>)}$ = $\mathM{\textM{evalp}^\ABS(\textS{p}, \Stt S<\ABS>)}$
+% where $\mathM{\textM{evale}^\ABS(\mathS{e}, \Stt S<\ABS>)}$ = match $\mathS{e}$ with
+%   | $\mathS{n} \to \eta(\mathS{n})$
+%   | $\Sread{e'} \to \Stt S<\ABS>[\mathM{evale}^\ABS(\mathS{e'},\Stt S<\ABS>)]^\ABS$
+%   | $\Sadd{e_1}{e_2} \to$
+%       .<.~$\mathM{\textM{evale}^\ABS(\mathS{e_1}, \Stt S<\ABS>)}$ $\mathbin{+^\ABS}$ .~$\mathM{\textM{evale}^\ABS(\mathS{e_2}, \Stt S<\ABS>)}$>.
+%   | $\Smult{e_1}{e_2} \to
+%       \mathM{\textM{evale}^\ABS(\mathS{e_1}, \Stt S<\ABS>) \mathbin{\times^\ABS}
+%              \textM{evale}^\ABS(\mathS{e_2}, \Stt S<\ABS>)}$
+%   | $\Sequ{e_1}{e_2} \to
+%       \mathM{\textM{evale}^\ABS(\mathS{e_1}, \Stt S<\ABS>) \mathbin{=^\ABS}
+%              \textM{evale}^\ABS(\mathS{e_2}, \Stt S<\ABS>)}$
+% and $\mathM{\textM{evalp}^\ABS(\mathS{p}, \Stt S<\ABS>)}$ = match $\mathS{p}$ with
+%   | $\Sskip{} \to \Stt S<\ABS>$
+%   | $\Sasgn{e_1}{e_2} \to$
+%       $\Stt S<\ABS>[\textM{evale}^\ABS(\mathS{e_1}, \Stt S<\ABS>)
+%       \mapsto^\ABS \textM{evale}^\ABS(\mathS{e_2}, \Stt S<\ABS>)]$
+%   | $\Sseq{p_1}{p_2} \to$
+%       $\mathM{\textM{evalp}^\ABS(\mathS{p_2}, 
+%       \textM{evalp}^\ABS(\mathS{p_1}, \Stt S<\ABS>))}$
+%   | $\Sif{e}{p_t}{p_f} \to$
+%       let $\mathS{v^\ABS} = \textM{evale}^\ABS(\mathS{e}, \Stt S<\ABS>)$ in
+%       $\mathM{\mathcal{F}^\ABS_{\ne 0}(\mathS{v^\ABS}, \textM{evalp}^\ABS(\mathS{p_t}, \Stt S<\ABS>))
+%        \mathbin{\sqcup^\ABS}
+%        \mathcal{F}^\ABS_{= 0}(\mathS{v^\ABS}, \textM{evalp}^\ABS(\mathS{p_f}, \Stt S<\ABS>))}$
+%   | $\Swhile{e}{p_b} \to$
+%       let $\mathS{v^\ABS}$ = $\textM{evale}^\ABS(\mathS{e}, \Stt S<\ABS>)$ in
+%       $\textM{evalp}^\ABS(\mathS{p},
+%         \textM{evalp}^\ABS(\mathS{p_b}, \mathcal{F}^\ABS_{\ne 0}(\mathS{v^\ABS}, \Stt S<\ABS>)))
+%         \mathbin{\sqcup^\ABS}
+%         \mathcal{F}^\ABS_{= 0}(\mathS{v^\ABS}, \Stt S<\ABS>)$
+% \end{metcode}
+% \caption{A (pseudo) MetaOCaml implementation of an abstract interpreter~$\Intp*MS<\ABS>$.}
+% \label{fig:impl}
+% \end{figure}
+The parametrizable knob is given by the extraction function $\eta$ \citep{NieNieHan99Principles,DarHor19Constructive} that extracts the abstract value from a single concrete value.
+Abstract operators are defined correspondingly: abstract operators~$+^\ABS$,~$\times^\ABS$,~$=^\ABS$ correspond to~$+$,~$\times$,~$=$, respectively; $\sqcup^\ABS$~is an abstract join; and~$\mathcal{F}^\ABS_{\ne 0}$ and~$\mathcal{F}^\ABS_{= 0}$ filter abstract values based on the predicate~$\ne 0$ and~$= 0$, respectively \citep{RivYi20Introduction}.
+% We preserve the tuple structure of the values and use the concrete projections~$\pi_1$ and~$\pi_2$ and concrete tuple constructor~$\mathM{(\cdot, \cdot)}$.
+
+To ensure termination, we have also modified the above code into an open-recursive style in the actual implementation, \textit{\`a la} Abstracting Definitional Interpreters \citep{DarLabNguVan17Abstracting}.
+
+Performing the specialization by applying \(\Intp*ST\) to the above function, we get the retargeted abstract interpreter~$\Intp MT<\ABS> = \Pe[\big]{\Intp MS<\ABS>}{\Enc[\big]SM{\Intp ST}}$ as\footnote{The open-recursive style has been manually restored to a recursive style for presentation.}
+%\(\func{\Stt S<\ABS>}{\Intp*MS<\ABS>(\Intp*ST, \textM{.< }\Stt S<\ABS> \textM{ >.})}\), 
+\begin{metcode}
+let $\mathM{{\Intp MS<\ABS>}_{\Intp ST}(\Stt S<\ABS>)}$ =
+  let $\mathS{v_1} = \mathM{\Stt S<\ABS>[\Stt S<\ABS>[\eta(1)]]}$ in
+  let $\mathS{\Stt S^\ABS_2} = \mathM{\mathcal{F}^\ABS_{\ne 0}(\mathS{v_1}, \Stt S<\ABS>)}$ in
+  let $\mathS{v_3} = \mathM{\mathS{\Stt S^\ABS_2}[\mathS{\Stt S^\ABS_2}[\eta(1)]] =^\ABS \eta(0)}$ in
+  let $\mathS{\Stt S^\ABS_4} = \mathM{\mathcal{F}^\ABS_{\ne 0}(\mathS{v_3}, \mathS{\Stt S^\ABS_2})}$ in let $\mathS{\Stt S^\ABS_5} = \mathM{\mathcal{F}^\ABS_{=0}(\mathS{v_3}, \mathS{\Stt S^\ABS_2})}$ in
+  let $\mathS{v_6} = \mathM{\mathS{\Stt S^\ABS_5}[\mathS{\Stt S^\ABS_5}[\eta(1)]] =^\ABS \eta(2)}$ in
+  let $\mathS{\Stt S^\ABS_7} = \mathM{\mathcal{F}^\ABS_{\ne 0}(\mathS{v_6}, \mathS{\Stt S^\ABS_5})}$ in let $\mathS{\Stt S^\ABS_8} = \mathM{\mathcal{F}^\ABS_{=0}(\mathS{v_6}, \mathS{\Stt S^\ABS_5})}$ in
+  let $\mathS{\Stt S^\ABS_9} =$
+    $\mathM{\mathS{\Stt S^\ABS_4}\bigl[\eta(0) \mapsto^\ABS \mathS{\Stt S^\ABS_4}[\eta(0)] +^\ABS \mathS{\Stt S^\ABS_4}[\mathS{\Stt S^\ABS_4}[\eta(1)] +^\ABS \eta(1)]\bigr]} \sqcup^\ABS {}$
+    $\mathM{\mathS{\Stt S^\ABS_7}\bigl[\eta(0) \mapsto^\ABS \mathS{\Stt S^\ABS_7}[\eta(0)] \times^\ABS \mathS{\Stt S^\ABS_7}[\mathS{\Stt S^\ABS_7}[\eta(1)] +^\ABS \eta(1)]\bigr] \sqcup^\ABS \mathS{\Stt S^\ABS_8}}$ in
+  $\mathM{\mathcal{F}^\ABS_{=0}(\mathS{v_1}, \Stt S<\ABS>) \sqcup^\ABS {}
+         {\Intp MS<\ABS>}_{\Intp ST}([\mathS{\Stt S^\ABS_9}[\eta(1) \mapsto^\ABS \mathS{\Stt S^\ABS_9}[\eta(1)] +^\ABS \eta(2)]])}$
+\end{metcode}
+% \begin{metcode}
+% fun $\mathit{cache}$ $\to$
+%   fun $k$ $\to$
+%     if $k = 0$
+%     then
+%       fun $\Stt S<\ABS>$ $\to$
+%         let $\mathS{v_1^\ABS}$ =
+%           $\Stt S<\ABS>[\Stt S<\ABS>[\eta(0)]]^\ABS$ in
+%         let $\mathS{{\Stt S}_1^\ABS}$ = $\mathcal{F}^\ABS_{\ne 0}(\mathS{v_1^\ABS}, \Stt S<\ABS>)$ in
+%         let $\mathS{v_2^\ABS}$ =
+%           $\mathS{{\Stt S}_1^\ABS}[\mathS{{\Stt S}_1^\ABS}[\eta(0)]]^\ABS \mathbin{=^\ABS} \eta(1)$ in
+%         let $\mathS{{\Stt S}_2^\ABS}$ = $\mathcal{F}^\ABS_{\ne 0}(\mathS{v_2^\ABS}, \mathS{{\Stt S}_1^\ABS})$ in
+%         let $\mathS{{\Stt S}_3^\ABS}$ = $\mathcal{F}^\ABS_{=0}(\mathS{v_2^\ABS}, \mathS{{\Stt S}_1^\ABS})$ in
+%         let $\mathS{v_3^\ABS}$ =
+%           $\mathS{{\Stt S}_3^\ABS}[\mathS{{\Stt S}_3^\ABS}[\eta(0)]]^\ABS \mathbin{=^\ABS} \eta(2)$ in
+%         let $\mathS{{\Stt S}_4^\ABS}$ = $\mathcal{F}^\ABS_{\ne 0}(\mathS{v_3^\ABS}, \mathS{{\Stt S}_3^\ABS})$ in
+%         let $\mathS{{\Stt S}_5^\ABS}$ = $\mathcal{F}^\ABS_{=0}(\mathS{v_3^\ABS}, \mathS{{\Stt S}_3^\ABS})$ in
+%         let $\mathS{{\Stt S}_6^\ABS}$ =
+%           $\mathS{{\Stt S}_2^\ABS}[\eta(1) \mapsto^\ABS \mathS{{\Stt S}_2^\ABS}[\eta(1)]^\ABS \mathbin{+^\ABS}$
+%                $\mathS{{\Stt S}_2^\ABS}[\mathS{{\Stt S}_2^\ABS}[\eta(0)]^\ABS \mathbin{+^\ABS} \eta(1)]^\ABS] \mathbin{\sqcup^\ABS}$
+%             $(\mathS{{\Stt S}_4^\ABS}[\eta(1) \mapsto^\ABS \mathS{{\Stt S}_4^\ABS}[\eta(1)]^\ABS \mathbin{\times^\ABS}$
+%                   $\mathS{{\Stt S}_4^\ABS}[\mathS{{\Stt S}_4^\ABS}[\eta(0)]^\ABS \mathbin{+^\ABS} \eta(1)]^\ABS] \mathbin{\sqcup^\ABS} \mathS{{\Stt S}_5^\ABS})$ in
+%         $\mathcal{F}^\ABS_{=0}(\mathS{v_1^\ABS}, \Stt S<\ABS>) \mathbin{\sqcup^\ABS}$
+%           $((\mathit{cache}\: 0)$
+%              $(\mathS{{\Stt S}_6^\ABS}[\eta(0) \mapsto^\ABS \mathS{{\Stt S}_6^\ABS}[\eta(0)]^\ABS \mathbin{+^\ABS} \eta(2)]))$
+%     else raise Not_found
+% \end{metcode}
+
+%\begin{metcode}
+%let $\mathM{{\Intp MS<\ABS>}_{\Intp ST}(\textS{i})}$ =
+%  let $\mathM{i^\ABS}$ = $\mathM{\eta(\textS{i})}$ in let $\mathM{p^\ABS}$ = $\mathM{\pi_1(\pi_1(i^\ABS)) \mathbin{=^\ABS} \eta(0)}$ in
+%  $\mathM{\mathcal{F}^\ABS_{\ne 0}(p^\ABS, \pi_2(\pi_1(i^\ABS)) \mathbin{+^\ABS} \pi_2(i^\ABS)) \mathbin{\sqcup^\ABS} \mathcal{F}^\ABS_{= 0}(p^\ABS, \pi_2(\pi_1(i^\ABS)) \mathbin{\times^\ABS} \pi_2(i^\ABS)))}$
+%\end{metcode}
+\noindent where the subscript~$\Intp ST$ indicates that the source code~$\Intp MS<\ABS>$ is specialized with respect to the concrete interpreter~$\Intp ST$.
+
+Notice that while the retargeted abstract interpreter~$\Intp MT<\ABS>$ is written in the meta-language~\MET, the (abstract-)interpretative overhead is eliminated and the structure of the interpreter~$\Intp*ST$ is closely mirrored:
+two abstract joins in lines~9--10 mirror the if-elif-else structure of the loop body, and the recursive call in line~11 mirrors the while loop of \(\Intp*ST\).
+This is a classical phenomenon in partial evaluation \citep{Jon96Introduction}.
+
+Moreover, observe the key advantage of our approach: $\Intp MT<\ABS>$ reuses the abstract operators~$+^\ABS$ (line~9) and~$\times^\ABS$ (line~10) from the existing~$\Intp MS<\ABS>$ to analyze the \TGT*programs~\Tadd{n} and~\Tmult{n}, resulting in a sound analyzer (\hyperref[thm:correctness]{main theorem}).
+Our approach enjoys the inherited properties from the existing (abstract) interpreter, as observed by \citet{Rey72Definitional}.
+
+
+\section{Related Work}\label{sec:back}
+\paragraph{Meta-level Analysis}
+The effort to automatically keep the analysis of JavaScript (JS) programs in sync with the rapidly evolving ECMA-262~\citep{ECM15ECMAScript} specification motivated the development of a meta-level static analyzer \textsf{JSAVER}~\citep{ParAnRyu22Automatically}.
+\textsf{JSAVER} targets a low-level language~\IRES, which is used to describe the semantics of JS.
+By applying a meta-level analysis to a definitional interpreter of JS written in \IRES, \textsf{JSAVER} can analyze JS programs.
+In this specialized setting, JS and \IRES{} share the same base value domain.
+
+We extend this work by
+\begin{enumerate}
+  \item providing a language-agnostic framework, even allowing source and target languages to have different value domains; and
+  \item addressing the performance limitations mentioned in their work through partial evaluation.
+\end{enumerate}
+
+\paragraph{Partial Evaluation}
+It is well known that partial evaluation of an interpreter with respect to a program leads to compilation of the program---this is called the first \citet{Fut71Partial,Fut99Partial} projection.
+The compiled program is essentially a specialized interpreter that does not need to traverse the AST of the original program, which eliminates interpretative overhead \citep{Jon96Introduction}.
+
+The same idea of improving analysis performance by applying the first Futamura projection to abstract definitional interpreters \citep{DarLabNguVan17Abstracting} was demonstrated in staged abstract interpreters \citep{WeiCheRom19Staged}.
+Since the analyzer is specialized to the target program, the (abstract) interpretative overhead is eliminated, resulting in efficient analysis.
+
+\Citet{PerGalSag98Analysisa} proposed a method for partially evaluating a definitional interpreter for an imperative language written in constraint logic programming.
+The resulting specialized interpreter---an imperative program compiled into a constraint logic program---can then be analyzed using an existing static analyzer for logic programming languages.
+While their approach produces an efficient representation of individual target programs, our approach yields a general analyzer applicable to any program in the target language.
+
+Note that we stage an abstract interpreter with respect to a \emph{definitional interpreter} for a new language rather than an analysis target program, representing a fundamentally different use of partial evaluation compared to prior work.
+
+\paragraph{Reusing Abstractions}
+Reusing abstractions for static analysis is an ongoing challenge.
+Skeletal semantics \citep{BodGarJenSch19Skeletal} can be used to derive abstract interpreters by integrating meta-language abstractions with language-specific ones \citep{JenRebSch23Deriving}.
+Composing modular analysis components has been proposed by \citet{KeiErd19Sound}, which employs arrows meta-language \citep{Hug00Generalising}.
+An open-source static analysis framework \textsc{Mopsa} \citep{JouMinMonOua20Combinations} leverages OCaml's extensible variants to easily define new targets and reuse abstractions compositionally.
+
+Our method follows a top-down approach of recycling an entire abstract interpreter to retarget to a new one, instead of composing analysis components in a bottom-up fashion.
+
+
+\section{Discussion}\label{sec:discuss}
+Our recipe for retargeting abstract interpreters can drastically reduce the effort required to develop static analyzers for various applications.
+For example, a JavaScript static analyzer such as JSAVER~\citep{ParAnRyu22Automatically} can be retargeted to analyze React applications using a React definitional interpreter like \textsc{\textsf{React-tRace}}~\citep{LeeAhnYi25React}.
+
+We are currently working on identifying the properties of the retargeted abstract interpreter---for example, the effect of the semantic gap between the source and target languages, its precision and performance characteristics, and approaches to inheriting analysis sensitivity for the target language.
+We believe that our recipe can be extended to provide a knob for analysis designers, enabling sensitivity control over the analyses of target programs.
+
+
+\begin{acks}
+We thank John Patrick Gallagher and anonymous reviewers for their valuable feedback.
+
+A preliminary version of this work was presented at the Student Research Competition (SRC) at the 46th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI~'25) \citep{Lee25Retargeting}.
+
+This work was supported by  the National Research Foundation of Korea (NRF) grant funded by the Korea government (MSIT) (0536-20250107), BK21 FOUR Intelligence Computing (Dept. of Computer Science and Engineering, SNU) funded by National Research Foundation of Korea (NRF) (4199990214639), Greenlabs Co., Ltd. (0536-20220078), and Samsung Electronics Co., Ltd. (0536-20230088).
+\end{acks}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+\end{document}
